@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SDA Cloudtech - Enterprise Secure Portal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Poppins',sans-serif;margin:0;background:#0f172a;color:#fff}
+header{padding:15px 5%;display:flex;justify-content:space-between;background:#020617}
+.logo{font-size:22px;font-weight:800;color:#00f5c4}
+.section{padding:60px 5%}
+.card{background:#1e293b;padding:25px;border-radius:15px;margin-top:20px}
+input,select{width:100%;padding:10px;margin:8px 0;border:none;border-radius:8px}
+button{padding:10px 20px;border:none;border-radius:20px;background:#00f5c4;color:#000;font-weight:600;cursor:pointer}
+.hidden{display:none}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #334155;padding:8px;text-align:center}
+footer{text-align:center;padding:15px;background:#020617}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">SDA Cloudtech - Secure</div>
+</header>
+
+<section class="section">
+<h2>Login Portal</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+<div class="card">
+<h3>Student Login</h3>
+<input type="text" id="studentId" placeholder="Reg.No">
+<input type="password" id="studentPass" placeholder="Password">
+<button onclick="studentLogin()">Login</button>
+<div id="studentDashboard" class="hidden">
+<h4>My Course</h4>
+<div id="courseContent"></div>
+<button onclick="logout()">Logout</button>
+</div>
+</div>
+
+<div class="card">
+<h3>Staff Login</h3>
+<input type="text" id="staffId" placeholder="Staff ID">
+<input type="password" id="staffPass" placeholder="Password">
+<button onclick="staffLogin()">Login</button>
+<div id="staffDashboard" class="hidden">
+<h4>Enroll Student</h4>
+<input type="text" id="stuName" placeholder="Student Name">
+<select id="stuCourse">
+<option>AWS</option><option>Azure</option><option>Cloud Computing</option>
+<option>DevOps</option><option>FullStack</option>
+<option>JAVA</option><option>Python</option><option>SQL</option>
+</select>
+<input type="password" id="stuPass" placeholder="Student Password">
+<input type="url" id="stuVideo" placeholder="Video URL">
+<button onclick="enrollStudent()">Enroll</button>
+<h4>Student List</h4>
+<table id="studentTable"><tr><th>RegNo</th><th>Name</th><th>Course</th></tr></table>
+<button onclick="logout()">Logout</button>
+</div>
+</div>
+
+</div>
+</section>
+
+<footer>© 2026 SDA Cloudtech Enterprise Secure</footer>
+
+<script>
+const googleScriptURL="https://script.google.com/macros/s/AKfycbwAX2n1L6BDON5EvTTC3tRRADS6rUEPKpETlVN-30L_4tNciBpRGctPzvBKJf3wZtr1/exec";
+
+// ==========================
+// SESSION STORAGE
+// ==========================
+function saveSession(token, role){
+  localStorage.setItem("sda_token", token);
+  localStorage.setItem("sda_role", role);
+}
+
+function getToken(){
+  return localStorage.getItem("sda_token");
+}
+
+function clearSession(){
+  localStorage.clear();
+}
+
+// ==========================
+// STUDENT LOGIN
+// ==========================
+async function studentLogin(){
+  const id=document.getElementById('studentId').value;
+  const pass=document.getElementById('studentPass').value;
+
+  const res=await fetch(`${googleScriptURL}?action=studentLogin&id=${id}&pass=${pass}`);
+  const data=await res.json();
+
+  if(data.status==='success'){
+    saveSession(data.token, data.role);
+    document.getElementById('studentDashboard').classList.remove('hidden');
+    document.getElementById('courseContent').innerHTML=
+      `<b>${data.course}</b><br><video width='100%' controls src='${data.video}'></video>`;
+  }else{
+    alert("Invalid Credentials");
+  }
+}
+
+// ==========================
+// STAFF LOGIN
+// ==========================
+async function staffLogin(){
+  const id=document.getElementById('staffId').value;
+  const pass=document.getElementById('staffPass').value;
+
+  const res=await fetch(`${googleScriptURL}?action=staffLogin&id=${id}&pass=${pass}`);
+  const data=await res.json();
+
+  if(data.status==='success'){
+    saveSession(data.token, data.role);
+    document.getElementById('staffDashboard').classList.remove('hidden');
+    loadStudents();
+  }else{
+    alert("Invalid Credentials");
+  }
+}
+
+// ==========================
+// ENROLL STUDENT (STAFF TOKEN REQUIRED)
+// ==========================
+async function enrollStudent(){
+  const token=getToken();
+  if(!token){ alert("Unauthorized"); return; }
+
+  const name=document.getElementById('stuName').value;
+  const course=document.getElementById('stuCourse').value;
+  const pass=document.getElementById('stuPass').value;
+  const video=document.getElementById('stuVideo').value;
+
+  const res=await fetch(googleScriptURL,{
+    method:'POST',
+    body:JSON.stringify({
+      action:'enroll',
+      name:name,
+      course:course,
+      pass:pass,
+      video:video,
+      staffToken:token
+    })
+  });
+
+  const data=await res.json();
+
+  if(data.status==='success'){
+    alert("Registered: "+data.reg);
+    loadStudents();
+  }else{
+    alert("Unauthorized Action");
+  }
+}
+
+// ==========================
+// LOAD STUDENTS (TOKEN REQUIRED)
+// ==========================
+async function loadStudents(){
+  const token=getToken();
+  if(!token){ return; }
+
+  const res=await fetch(`${googleScriptURL}?action=listStudents&token=${token}`);
+  const data=await res.json();
+
+  const table=document.getElementById('studentTable');
+  table.innerHTML='<tr><th>RegNo</th><th>Name</th><th>Course</th></tr>';
+
+  data.forEach(s=>{
+    table.innerHTML+=`<tr><td>${s.reg}</td><td>${s.name}</td><td>${s.course}</td></tr>`;
+  });
+}
+
+// ==========================
+// LOGOUT
+// ==========================
+function logout(){
+  clearSession();
+  location.reload();
+}
+</script>
+
+</body>
+</html>
